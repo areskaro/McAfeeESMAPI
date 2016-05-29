@@ -161,7 +161,6 @@ class API():
         if res.status != 200 :
             raise Exception(res.reason,res.status)
         return res.read().strip()
-    #https://155.45.179.57/rs/esm/grpGetDeviceTreeEx?displayID=0&hideDisabledDevices=false    
     def get_device_tree_extended(self):
         try :
             response = self.q('grpGetDeviceTreeEx?displayID=0&hideDisabledDevices=true')
