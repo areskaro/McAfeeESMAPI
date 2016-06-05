@@ -42,47 +42,51 @@ class API():
        
         print 'Creating new API instance for host: ',host,':',port
 
-    def login(self):
-        if sys.platform.startswith("win32"):
-            fileName = sys.path[0]+'\\.sessID'
-        else:
-            fileName = sys.path[0]+'/.sessID'
-        try:
-            fp = open(fileName,'r')
-            content = fp.read()
-            sessID, hostIP = string.split(content,'|')
-            if hostIP != self.host :
-                raise Exception('Lack of session ID, please login first')
-            self.setSessionID(sessID)
-            fp.close()
-            return True
-        except:
+    def login(self,storeSessionID = 1):
+        if storeSessionID :
+            if sys.platform.startswith("win32"):
+                fileName = sys.path[0]+'\\.sessID'
+            else:
+                fileName = sys.path[0]+'/.sessID'
+            try:
+                fp = open(fileName,'r')
+                content = fp.read()
+                sessID, hostIP = string.split(content,'|')
+                if hostIP != self.host :
+                    raise Exception('Lack of session ID, please login first')
+                self.setSessionID(sessID)
+                fp.close()
+                return True
+            except:
+                login = str(raw_input('User login:'))
+                password = getpass.getpass('Password:')
+        else:    
             login = str(raw_input('User login:'))
-            password = str(raw_input('Password:'))
+            password = getpass.getpass('Password:')
             
             
-            self.auth = base64.b64encode('%s:%s' % (login,password))
-            if not self.conn :
-                raise Exception('Lack of established connection');
-            headers = {"Content-type":"application/json","Authorization" : "Basic %s" % (self.auth)}
-            params = None
-            self.conn.request('POST','/rs/esm/login',params,headers)
-            res = self.conn.getresponse();
-            if res.status != 201 :
-                print res.status, res.reason
-                print res.read().strip()
-                sys.exit(1)
-            #login with success
-            xres = res.read().strip()
-            myParser = xp()          
-            p = xml.parsers.expat.ParserCreate()
-            p.StartElementHandler = myParser.start_element
-            p.CharacterDataHandler = myParser.char_data
-            p.Parse(xres,1)
-            self.sessionID = myParser.get('sessionID')
-            fp = open(fileName,'w')
-            fp.write(self.sessionID+'|'+self.host)
-            fp.close()
+        self.auth = base64.b64encode('%s:%s' % (login,password))
+        if not self.conn :
+            raise Exception('Lack of established connection');
+        headers = {"Content-type":"application/json","Authorization" : "Basic %s" % (self.auth)}
+        params = None
+        self.conn.request('POST','/rs/esm/login',params,headers)
+        res = self.conn.getresponse();
+        if res.status != 201 :
+            print res.status, res.reason
+            print res.read().strip()
+            sys.exit(1)
+        #login with success
+        xres = res.read().strip()
+        myParser = xp()          
+        p = xml.parsers.expat.ParserCreate()
+        p.StartElementHandler = myParser.start_element
+        p.CharacterDataHandler = myParser.char_data
+        p.Parse(xres,1)
+        self.sessionID = myParser.get('sessionID')
+        fp = open(fileName,'w')
+        fp.write(self.sessionID+'|'+self.host)
+        fp.close()
         #return self.sessionID
         return True
         
@@ -122,6 +126,16 @@ class API():
         params = '{"resultID" : {"value" : %s}}' % (resultID)
         res = json.loads(self.q('qryGetStatus',params))
         return res['return']
+    def qryExecuteDetail(self,query,debug = 0,delay = 0.2):
+        res = json.loads(self.q('qryExecuteDetail?type=EVENT&reverse=false',query))
+        resultID = res['return']['resultID']['value']
+        ans = self.qryGetStatus(resultID)
+        while ans['percentComplete'] < 100 :
+            if debug :
+                sys.stdout.write('w')
+            time.sleep(delay)
+            ans = self.qryGetStatus(resultID)
+        return ans
     def clean(self):
         for key in self.result_table:
             #print 'trying to close:',key

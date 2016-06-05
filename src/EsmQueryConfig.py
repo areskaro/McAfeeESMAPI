@@ -106,3 +106,4 @@ class SimpleQuery:
             print 'blad w json'
             sys.exit(1)
         return out
+        
